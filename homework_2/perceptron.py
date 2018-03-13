@@ -7,18 +7,27 @@ def main():
     train_model(BATCH=True)
 
 
+# TODO
+# 对模型的训练加上一个计时函数, 分析不同学习率下的收敛速度
 def train_model(pos_data=None, neg_data=None, w=None, b=None,
                 learning_rate=None, BATCH=False):
     if pos_data is None:
         pos_data, neg_data = generate_data()
     train_data = generate_train_data(pos_data, neg_data)
+    plt.plot(pos_data['x'], pos_data['y'])
+    plt.plot(neg_data['x'], neg_data['y'])
     if w is None:
         w, b, learning_rate = initial_parameter()
+
     if BATCH:
         w, b = train_perceptron_in_batch(train_data, b, learning_rate)
     else:
         w, b = train_perceptron(train_data, w, b, learning_rate)
     plot_data(pos_data, neg_data, w, b)
+
+    # w1, b1 = train_perceptron_in_batch(train_data, b, learning_rate)  # w2,
+    #  b2 = train_perceptron(train_data, w, b, learning_rate)  #
+    # plot_data_for_comparison([w1, w2], [b1, b2])
 
 
 def generate_data():
@@ -35,7 +44,7 @@ def generate_data():
 
 def generate_train_data(pos_data, neg_data):
     train_data = pd.concat([pos_data, neg_data])
-    train_data = train_data.sample(frac=1)  # 对数据行进行随机排列
+    # train_data = train_data.sample(frac=1)  # 对数据行进行随机排列
     train_data = np.array(train_data)  # print(train_data)
     return train_data
 
@@ -60,10 +69,23 @@ def plot_data(pos_data, neg_data, w, b):
     plt.show()
 
 
+def plot_data_for_comparison(w, b):
+    x_line = np.linspace(-6, 10, 20)
+    y_line = x_line * (-w[0][0] / w[0][1]) - b[0] / w[0][1]
+    plt.plot(x_line, y_line)
+    y_line = x_line * (-w[1][0] / w[1][1]) - b[1] / w[1][1]
+    plt.plot(x_line, y_line)
+    plt.xlabel("x")
+    plt.ylabel("y")
+    plt.xlim(-6, 10)
+    plt.ylim(-6, 10)
+    plt.show()
+
+
 def train_perceptron(train_data, w, b, learning_rate):
-    EPOCHES = 1000
+    EPOCHS = 1000
     cnt = 0
-    while cnt < EPOCHES:
+    while cnt < EPOCHS:
         not_modified = True
         for x in train_data:
             label = x[0] * (np.dot(w.T, x[1:]) + b)
@@ -78,40 +100,30 @@ def train_perceptron(train_data, w, b, learning_rate):
     return w, b
 
 
-def train_perceptron_in_batch(train_data,  b, learning_rate):
-    EPOCHES = 100
+def train_perceptron_in_batch(train_data, b, learning_rate):
+    EPOCHS = 100
+    dim = len(train_data)
     cnt = 0
     gram_matrix = []
-    a = [0] * 100
-    learning_rate_matrix = np.array([learning_rate] * 100).T
+    a = [0] * dim
     for data1 in train_data:
         for data2 in train_data:
             gram_matrix.append(np.dot(data1[1:].T, data2[1:]))
-    gram_matrix = np.array(gram_matrix).reshape((100, 100))
-    while cnt < EPOCHES:
-        not_modified = True
-        cur = train_data[cnt]
-        if cur[0] * \
-                (np.dot(a * train_data[:, 0],gram_matrix[:, cnt])) <= 0:
-            a = np.add(a, learning_rate_matrix)
+    gram_matrix = np.array(gram_matrix).reshape((dim, dim))
+    while cnt < EPOCHS:
+        index = cnt % dim
+        cur = train_data[index]
+        if cur[0] * (
+                np.dot(a * train_data[:, 0], gram_matrix[:, index]) + b) <= 0:
+            t = np.dot(a * train_data[:, 0], gram_matrix[:, index])
+            # a = np.add(a, learning_rate_matrix)
+            a[index] += learning_rate
             b += learning_rate * cur[0]
-
-        if not_modified:
-            break
         cnt += 1
-    w = a * train_data[:, 0] * train_data[:, 1]
+    print(a * train_data[:, 0])
+    w = np.dot(a * train_data[:, 0], train_data[:, 1:])
     print("w : %s and b is :%s" % (w, b))
     return w, b
-
-
-def predict(w, b, x):
-    if np.dot(w.T, x) + b > 0:
-        return 1
-    return 0
-
-
-def get_mul(v1, v2):
-    return v1.x * v2.x + v1.y * v2.y
 
 
 if __name__ == "__main__":
