@@ -4,30 +4,29 @@ import pandas as pd
 
 
 def main():
-    train_model(BATCH=True)
+    train_model(BATCH=False)
 
 
-# TODO
-# 对模型的训练加上一个计时函数, 分析不同学习率下的收敛速度
-def train_model(pos_data=None, neg_data=None, w=None, b=None,
-                learning_rate=None, BATCH=False):
+def train_model(b=0, learning_rate=0.3, w=None, pos_data=None, neg_data=None,
+                BATCH=False):
     if pos_data is None:
         pos_data, neg_data = generate_data()
     train_data = generate_train_data(pos_data, neg_data)
     plt.plot(pos_data['x'], pos_data['y'])
     plt.plot(neg_data['x'], neg_data['y'])
+
     if w is None:
-        w, b, learning_rate = initial_parameter()
+        w = np.array([0] * 2)
 
-    if BATCH:
-        w, b = train_perceptron_in_batch(train_data, b, learning_rate)
-    else:
-        w, b = train_perceptron(train_data, w, b, learning_rate)
-    plot_data(pos_data, neg_data, w, b)
+    # if BATCH:
+    #     w, b = train_perceptron_in_batch(train_data, b, learning_rate)
+    # else:
+    #     w, b = train_perceptron(train_data, w, b, learning_rate)
+    # plot_data(pos_data, neg_data, w, b)
 
-    # w1, b1 = train_perceptron_in_batch(train_data, b, learning_rate)  # w2,
-    #  b2 = train_perceptron(train_data, w, b, learning_rate)  #
-    # plot_data_for_comparison([w1, w2], [b1, b2])
+    w1, b1 = train_perceptron_in_batch(train_data, b, learning_rate)
+    w2, b2 = train_perceptron(train_data, w, b, learning_rate)  #  #
+    plot_data_for_comparison([w1, w2], [b1, b2])
 
 
 def generate_data():
@@ -44,16 +43,10 @@ def generate_data():
 
 def generate_train_data(pos_data, neg_data):
     train_data = pd.concat([pos_data, neg_data])
-    # train_data = train_data.sample(frac=1)  # 对数据行进行随机排列
+    train_data = train_data.sample(frac=1)  # 对数据行进行随机排列
     train_data = np.array(train_data)  # print(train_data)
     return train_data
 
-
-def initial_parameter(dim=2):
-    w = np.array([0] * dim)
-    b = 0
-    learning_rate = 0.3
-    return w, b, learning_rate
 
 
 def plot_data(pos_data, neg_data, w, b):
@@ -104,26 +97,36 @@ def train_perceptron_in_batch(train_data, b, learning_rate):
     EPOCHS = 100
     dim = len(train_data)
     cnt = 0
-    gram_matrix = []
     a = [0] * dim
-    for data1 in train_data:
-        for data2 in train_data:
-            gram_matrix.append(np.dot(data1[1:].T, data2[1:]))
-    gram_matrix = np.array(gram_matrix).reshape((dim, dim))
+    gram_matrix = get_gram_matrix(train_data)
     while cnt < EPOCHS:
-        index = cnt % dim
-        cur = train_data[index]
-        if cur[0] * (
-                np.dot(a * train_data[:, 0], gram_matrix[:, index]) + b) <= 0:
-            t = np.dot(a * train_data[:, 0], gram_matrix[:, index])
-            # a = np.add(a, learning_rate_matrix)
-            a[index] += learning_rate
-            b += learning_rate * cur[0]
+        is_converged = True
+        for index in range(dim):
+            cur = train_data[index]
+            if cur[0] * (np.dot(a * train_data[:, 0],
+                                gram_matrix[:, index]) + b) <= 0:
+                t = np.dot(a * train_data[:, 0], gram_matrix[:, index])
+                # a = np.add(a, learning_rate_matrix)
+                a[index] += learning_rate
+                b += learning_rate * cur[0]
+                is_converged = False
+        if is_converged:
+            break
         cnt += 1
     print(a * train_data[:, 0])
     w = np.dot(a * train_data[:, 0], train_data[:, 1:])
     print("w : %s and b is :%s" % (w, b))
     return w, b
+
+
+def get_gram_matrix(train_data):
+    gram_matrix = []
+    dim = len(train_data)
+    for data1 in train_data:
+        for data2 in train_data:
+            gram_matrix.append(np.dot(data1[1:].T, data2[1:]))
+    gram_matrix = np.array(gram_matrix).reshape((dim, dim))
+    return gram_matrix
 
 
 if __name__ == "__main__":
