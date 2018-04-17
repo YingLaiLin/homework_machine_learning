@@ -6,7 +6,6 @@ NEGATIVE_LABEL = -1
 POSITIVE_LABEL = 1
 
 
-# TODO 增加对于决策树桩的方向
 def main():
     train_data, labels = init_data()
     assert len(train_data) > 0
@@ -16,20 +15,24 @@ def main():
     index = 0
     while index < iterations:
         print('---------------------------')
-        classifier = search_best_classifier(train_data, labels, weights[index])
+        classifier, error = search_best_classifier(train_data, labels,
+                                                   weights[index])
         classifiers[index] = classifier
-        dim = classifier[0]
-        split_value = classifier[1]
-        error = get_error(train_data[:, dim], weights[index], classifier,
-                          labels)
-        if error == 0:
-            break
-        print('error:', error)
+        print('best error:', error)
         coefficient = math.log((1 - error) / error) / 2
 
         print('G{}(x) 的系数为{}'.format(index + 1, coefficient))
-        print('分类维度为{}, 分割点为{}'.format(classifier[0], classifier[1]))
+        if classifier[2]:
+            print('G{}(x): x > {}  y = 1,  x < {}, y = -1'.format(index+1,
+                                                                  classifier[1],
+                                                                  classifier[1]))
+        else:
+            print('G{}(x): x < {}  y = 1,  x > {}, y = -1'.format(index+1,
+                                                                  classifier[1],
+                                                                  classifier[1]))
+
         coefficients[index] = coefficient
+        dim = classifier[0]
         updated_weights = get_update_weights(train_data[:, dim], weights[index],
                                              classifier, coefficient, labels)
         weights[index + 1] = updated_weights
@@ -43,13 +46,13 @@ def main():
             if classifier[2]:
                 predictions_all += coefficients[classifier_index] * np.array(
                     list(map(lambda
-                                 x: NEGATIVE_LABEL if x < split_value else
+                                 x: NEGATIVE_LABEL if x > split_value else
                     POSITIVE_LABEL,
                              train_data[:, dim])))
             else:
                 predictions_all += coefficients[classifier_index] * np.array(
                     list(map(lambda
-                                 x: NEGATIVE_LABEL if x > split_value else
+                                 x: NEGATIVE_LABEL if x < split_value else
                     POSITIVE_LABEL,
                              train_data[:, dim])))
         predictions_all = np.array(list(map(
@@ -64,7 +67,7 @@ def main():
             break
 
     # output classifiers
-    can_out_put_classifiers = True
+    can_out_put_classifiers = False
     if can_out_put_classifiers:
         print('---------------------------')
         print('得到的树桩依次为:')
@@ -115,27 +118,30 @@ def search_best_classifier(train_data, labels, weights):
         for split_value in set(data):
             classifier = np.array([dim_index, split_value, 0])
             error = get_error(data, weights, classifier, labels)
-            if error > 0.5:
-                classifier[2] = 1
-                error = 1 - error
+            classifier_gt = np.array([dim_index, split_value, 1])
+            error_gt = get_error(data, weights, classifier_gt, labels)
+            if error_gt < error:
+                error = error_gt
+                classifier = classifier_gt
             if error < best_error:
-                print('切分点值: {}'.format(split_value))
+                # print('切分点值: {}'.format(split_value))
                 best_error = error
                 best_classifier = classifier
-    return best_classifier
+    return best_classifier, best_error
 
 
 def get_error(data, weights, classifier, labels):
     error = 0.0
     split_value = classifier[1]
     for index in range(len(data)):
+        # 使用 >
         if classifier[2]:
             prediction = NEGATIVE_LABEL if data[
-                                               index] < split_value else \
+                                               index] > split_value else \
                 POSITIVE_LABEL
         else:
             prediction = NEGATIVE_LABEL if data[
-                                               index] > split_value else \
+                                               index] < split_value else \
                 POSITIVE_LABEL
         if prediction != labels[index]:
             error += weights[index]
@@ -146,11 +152,11 @@ def get_update_weights(data, weights, classifier, coefficient, labels):
     split_value = classifier[1]
     if classifier[2]:
         predictions = np.array(list(
-            map(lambda x: NEGATIVE_LABEL if x < split_value else POSITIVE_LABEL,
+            map(lambda x: NEGATIVE_LABEL if x > split_value else POSITIVE_LABEL,
                 data)))
     else:
         predictions = np.array(list(
-            map(lambda x: NEGATIVE_LABEL if x > split_value else POSITIVE_LABEL,
+            map(lambda x: NEGATIVE_LABEL if x < split_value else POSITIVE_LABEL,
                 data)))
     x = np.exp(-coefficient * labels * predictions)
     z = np.dot(weights, x)
