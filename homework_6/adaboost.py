@@ -2,6 +2,7 @@
 import numpy as np
 import math
 from homework_6 import config
+import matplotlib.pyplot as plt
 
 
 def main():
@@ -15,6 +16,8 @@ def main():
     coefficients, weights = init_params(iterations, len(train_data))
     classifiers = init_classifiers(iterations)
     index = 1
+    precisions = []
+    errors = []
     while index < iterations:
         print('---------------------------')
         classifier, error = search_best_classifier(train_data, labels,
@@ -50,19 +53,18 @@ def main():
                                  x: config.NEGATIVE_LABEL if x < split_value
                     else config.POSITIVE_LABEL,
                              train_data[:, dim])))
-        # predictions_all = np.array(list(map(
-        #     lambda x: config.POSITIVE_LABEL if abs(
-        #         x - config.POSITIVE_LABEL) < abs(
-        #         x - config.NEGATIVE_LABEL) else config.NEGATIVE_LABEL,
-        #     predictions_all)))
+
         predictions_all = np.array(list(map(
             lambda x: config.POSITIVE_LABEL if x > 0 else config.NEGATIVE_LABEL,
             predictions_all)))
         wrong_classified = np.sum(predictions_all != labels)
         print('分类误差点数量 {}'.format(np.sum(predictions_all != labels)))
+        precisions.append(np.sum(predictions_all == labels) / len(train_data))
+        errors.append(error)
         index += 1
         if not wrong_classified:
             break
+    show_performance(index, precisions, errors)
 
 
 def init_data():
@@ -110,10 +112,7 @@ def search_best_classifier(train_data, labels, weights, ):
             if error_gt < error:
                 error = error_gt
                 classifier = classifier_gt
-            if best_error - error > 1e-9:
-                print(best_error, error)
-                print(best_error - error)
-                print(classifier, error)
+            if best_error > error:
                 best_error = error
                 best_classifier = classifier
     return best_classifier, best_error
@@ -139,33 +138,19 @@ def get_error(data, weights, classifier, labels):
 
 def output_classifier(index, classifier, features):
     if classifier[2]:
-        print('G{}(x): {} > {}  y = {},  {} < {}, y = {}'.format(index ,
-                                                                 features[
-                                                                     classifier[
-                                                                         0].astype(
-                                                                         int)],
-                                                                 classifier[1],
-                                                                 config.NEGATIVE_LABEL,
-                                                                 features[
-                                                                     classifier[
-                                                                         0].astype(
-                                                                         int)],
-                                                                 classifier[1],
-                                                                 config.POSITIVE_LABEL))
+        print('G{}(x): {} > {}  y = {}'
+              ',  {} < {}, y = {}'.format(index,
+                                          features[classifier[0].astype(int)],
+                                          classifier[1], config.NEGATIVE_LABEL,
+                                          features[classifier[0].astype(int)],
+                                          classifier[1], config.POSITIVE_LABEL))
     else:
-        print('G{}(x): {} < {}  y = {},  {} > {}, y = {}'.format(index ,
-                                                                 features[
-                                                                     classifier[
-                                                                         0].astype(
-                                                                         int)],
-                                                                 classifier[1],
-                                                                 config.NEGATIVE_LABEL,
-                                                                 features[
-                                                                     classifier[
-                                                                         0].astype(
-                                                                         int)],
-                                                                 classifier[1],
-                                                                 config.POSITIVE_LABEL))
+        print('G{}(x): {} < {}  y = {}'
+              ',  {} > {}, y = {}'.format(index,
+                                          features[classifier[0].astype(int)],
+                                          classifier[1], config.NEGATIVE_LABEL,
+                                          features[classifier[0].astype(int)],
+                                          classifier[1], config.POSITIVE_LABEL))
 
 
 def get_update_weights(data, weights, classifier, coefficient, labels):
@@ -183,7 +168,7 @@ def get_update_weights(data, weights, classifier, coefficient, labels):
 
     x = np.exp(-coefficient * labels * predictions)
     z = np.dot(weights, x)
-    x = x / sum(weights/z)
+    # x = x / sum(weights / z)
     updated_weights = weights / z * x
     return updated_weights
 
@@ -193,6 +178,22 @@ def get_available_values(split_values):
     split_values.append(max(split_values) + 1)
     return [sum(split_values[k:k + 2]) / len(split_values[k:k + 2]) for k in
             range(0, len(split_values) - 1, 1)]
+
+
+def show_performance(index, precisions, errors):
+    ax_precision = plt.subplot(111)
+    axis_iterations = [i for i in range(1, index)]
+    # get ax_precision
+    ax_precision.plot(axis_iterations, precisions, 'g', label='precision')
+    ax_precision.legend(loc=1)
+    ax_precision.set_xlabel('iterations(numbers of weak classifier')
+    ax_precision.set_ylabel('precision')
+    # get ax_error
+    ax_error = ax_precision.twinx()
+    ax_error.set_ylabel('error')
+    ax_error.plot(axis_iterations, errors, 'r', label='error')
+    ax_error.legend(loc=2)
+    plt.show()
 
 
 if __name__ == "__main__":
